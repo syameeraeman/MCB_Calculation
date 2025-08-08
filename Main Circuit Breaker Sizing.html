@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Circuit Breaker Sizing</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+        
+        .calculator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            height: 50px;
+        }
+        
+        .voltage-input {
+            display: flex;
+            align-items: center;
+            height: 100%;
+        }
+        
+        .voltage-input label {
+            margin-right: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .voltage-input input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            height: 35px;
+            box-sizing: border-box;
+        }
+        
+        .add-load-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            height: 35px;
+            box-sizing: border-box;
+        }
+        
+        .add-load-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .secondary-btn {
+            background-color: #95a5a6;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-left: 8px;
+            height: 35px;
+            box-sizing: border-box;
+        }
+
+        .secondary-btn:hover {
+            background-color: #7f8c8d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th:first-child, td:first-child {
+            min-width: 200px;
+            width: 30%;
+        }
+        
+        th:nth-child(2), td:nth-child(2),
+        th:nth-child(3), td:nth-child(3),
+        th:nth-child(4), td:nth-child(4),
+        th:nth-child(5), td:nth-child(5) {
+            text-align: center;
+        }
+        
+        th {
+            background-color: var(--light-color);
+            font-weight: bold;
+        }
+        
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        /* Make table number inputs match voltage input styling exactly */
+        td input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: inherit;
+        }
+        
+        /* Ensure consistent styling across all number inputs */
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .remove-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: var(--light-color);
+            border-radius: 4px;
+        }
+        
+        .result-item {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 5px;
+        }
+        
+        .result-item span:last-child {
+            text-align: right;
+            font-weight: bold;
+            min-width: 80px;
+            margin-left: auto;
+        }
+        
+        #totalCurrent, #scaledCurrent {
+            text-align: right;
+            font-weight: bold;
+            min-width: 80px;
+            display: inline-block;
+        }
+        
+        .scale-section {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .scale-input {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .scale-input input {
+            width: 100px;
+            margin-right: 10px;
+            text-align: center;
+        }
+        
+        .scale-input .apply-btn {
+            margin-left: 20px;
+        }
+        
+        .scaled-result {
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 1.2em;
+        }
+        
+        .no-loads {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+        
+        .status-bar {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid var(--secondary-color);
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .status-bar.success {
+            border-left-color: #27ae60;
+            background-color: #d5f4e6;
+        }
+        
+        .status-bar.warning {
+            border-left-color: #f39c12;
+            background-color: #fef9e7;
+        }
+        
+        .status-bar.error {
+            border-left-color: #e74c3c;
+            background-color: #fadbd8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Main Circuit Breaker Sizing Calculator</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 20px; font-size: 14px;">Professional Electrical Load Calculator v2.0</p>
+        
+        <div class="calculator-header">
+            <div class="voltage-input">
+                <label for="voltage">Voltage (V):</label>
+                <input type="number" id="voltage" value="220" min="1">
+            </div>
+            <div>
+                <button class="add-load-btn" id="addLoadBtn">Add Load</button>
+                <button class="secondary-btn" id="exportBtn" title="Export loads as Excel file">Export</button>
+                <button class="secondary-btn" id="clearAllBtn" title="Clear all loads">Clear All</button>
+            </div>
+        </div>
+        
+        <table id="loadsTable">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Rated Power (W)</th>
+                    <th>Current (A)</th>
+                    <th>Quantity</th>
+                    <th>Total Current (A)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="loadsTableBody">
+                <tr class="no-loads">
+                    <td colspan="6">No loads added yet</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="results" id="resultsSection" style="display: none;">
+            <div class="result-item">
+                <span>Total Load Current:</span>
+                <span id="totalCurrent">0 A</span>
+            </div>
+            <div class="status-bar" id="statusBar">
+                <span id="statusText">Ready for calculations</span>
+            </div>
+        </div>
+        
+        <div class="scale-section" id="scaleSection" style="display: none;">
+            <h3>Current Scaling</h3>
+            <p>Apply a scaling factor to the total current (e.g., for derating or safety margins)</p>
+            
+            <div class="scale-input">
+                <input type="number" id="scaleFactor" value="100" min="1" max="200">
+                <span>%</span>
+                <button id="applyScaleBtn" class="add-load-btn apply-btn">Apply</button>
+            </div>
+            
+            <div class="result-item" style="margin-top: 15px;">
+                <span>Scaled Current:</span>
+                <span id="scaledCurrent" class="scaled-result">0 A</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const voltageInput = document.getElementById('voltage');
+            const addLoadBtn = document.getElementById('addLoadBtn');
+            const loadsTableBody = document.getElementById('loadsTableBody');
+            const resultsSection = document.getElementById('resultsSection');
+            const totalCurrentSpan = document.getElementById('totalCurrent');
+            const scaleSection = document.getElementById('scaleSection');
+            const scaleFactorInput = document.getElementById('scaleFactor');
+            const applyScaleBtn = document.getElementById('applyScaleBtn');
+            const scaledCurrentSpan = document.getElementById('scaledCurrent');
+            const exportBtn = document.getElementById('exportBtn');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            const statusBar = document.getElementById('statusBar');
+            const statusText = document.getElementById('statusText');
+            
+            let loads = [];
+            const storageKey = 'mcb_calculator_state_v1';
+            
+            // Add new load row
+            addLoadBtn.addEventListener('click', function() {
+                const loadId = Date.now();
+                loads.push({
+                    id: loadId,
+                    description: '',
+                    power: '',
+                    quantity: 1,
+                    current: 0,
+                    totalCurrent: 0
+                });
+                
+                renderLoads();
+                updateStatus('Load added successfully', 'success');
+                
+                // Focus on the first input of the new row
+                const newRow = document.querySelector(`[data-id="${loadId}"]`);
+                if (newRow) {
+                    newRow.querySelector('input').focus();
+                }
+            });
+            
+            // Update status bar
+            function updateStatus(message, type = 'info') {
+                statusText.textContent = message;
+                statusBar.className = `status-bar ${type}`;
+                
+                // Auto-clear status after 3 seconds
+                setTimeout(() => {
+                    statusBar.className = 'status-bar';
+                    statusText.textContent = 'Ready for calculations';
+                }, 3000);
+            }
+            
+            // Render all loads
+            function renderLoads() {
+                if (loads.length === 0) {
+                    loadsTableBody.innerHTML = '<tr class="no-loads"><td colspan="6">No loads added yet</td></tr>';
+                    resultsSection.style.display = 'none';
+                    scaleSection.style.display = 'none';
+                    saveState();
+                    return;
+                }
+                
+                loadsTableBody.innerHTML = '';
+                
+                loads.forEach(load => {
+                    const row = document.createElement('tr');
+                    row.setAttribute('data-id', load.id);
+                    
+                    row.innerHTML = `
+                        <td><input type="text" class="description" value="${load.description}" placeholder="e.g. Motor"></td>
+                        <td><input type="number" class="power" value="${load.power}" min="0" placeholder="Watt"></td>
+                        <td><input type="number" class="current" value="${load.current.toFixed(2)}" min="0" placeholder="A"></td>
+                        <td><input type="number" class="quantity" value="${load.quantity}" min="1" placeholder="Qty"></td>
+                        <td>${load.totalCurrent.toFixed(2)}</td>
+                        <td><button class="remove-btn" data-id="${load.id}">Remove</button></td>
+                    `;
+                    
+                    loadsTableBody.appendChild(row);
+                    
+                    // Add event listeners to the new row
+                    const descriptionInput = row.querySelector('.description');
+                    const powerInput = row.querySelector('.power');
+                    const currentInput = row.querySelector('.current');
+                    const removeBtn = row.querySelector('.remove-btn');
+                    
+                    descriptionInput.addEventListener('input', function() {
+                        updateLoad(load.id, 'description', this.value);
+                    });
+                    
+                    powerInput.addEventListener('input', function() {
+                        updateLoad(load.id, 'power', this.value);
+                        // When power is edited, recalculate current from power and voltage
+                        const voltage = parseFloat(voltageInput.value) || 1;
+                        const newCurrent = (parseFloat(this.value) || 0) / voltage;
+                        updateLoad(load.id, 'current', newCurrent);
+                        // Update the current input field directly
+                        const currentInput = row.querySelector('.current');
+                        if (currentInput) {
+                            currentInput.value = newCurrent.toFixed(2);
+                        }
+                        calculateTotalCurrent(load.id);
+                        updateTotal();
+                    });
+                    
+                    currentInput.addEventListener('input', function() {
+                        updateLoad(load.id, 'current', parseFloat(this.value) || 0);
+                        calculateTotalCurrent(load.id);
+                        updateTotal();
+                    });
+                    
+                    const quantityInput = row.querySelector('.quantity');
+                    quantityInput.addEventListener('input', function() {
+                        updateLoad(load.id, 'quantity', this.value);
+                        calculateTotalCurrent(load.id);
+                        updateTotal();
+                    });
+                    
+                    removeBtn.addEventListener('click', function() {
+                        removeLoad(load.id);
+                    });
+                });
+                
+                resultsSection.style.display = 'block';
+                scaleSection.style.display = 'block';
+                saveState();
+            }
+            
+            // Update load property
+            function updateLoad(id, property, value) {
+                const load = loads.find(l => l.id === id);
+                if (load) {
+                    load[property] = value;
+                }
+            }
+            
+            // Calculate current for a load
+            function calculateCurrent(id) {
+                const load = loads.find(l => l.id === id);
+                if (load) {
+                    const voltage = parseFloat(voltageInput.value) || 1; // Avoid division by zero
+                    load.current = (parseFloat(load.power) || 0) / voltage;
+                    // Update only the current input field for this row
+                    const row = document.querySelector(`[data-id="${id}"]`);
+                    if (row) {
+                        const currentInput = row.querySelector('.current');
+                        if (currentInput) {
+                            currentInput.value = load.current.toFixed(2);
+                        }
+                    }
+                    calculateTotalCurrent(id);
+                }
+            }
+            
+            // Calculate total current for a load (when current is directly edited)
+            function calculateTotalCurrent(id) {
+                const load = loads.find(l => l.id === id);
+                if (load) {
+                    load.totalCurrent = load.current * (parseInt(load.quantity) || 1);
+                    // Update only the total current display for this row
+                    const row = document.querySelector(`[data-id="${id}"]`);
+                    if (row) {
+                        const totalCurrentCell = row.querySelector('td:nth-child(5)');
+                        if (totalCurrentCell) {
+                            totalCurrentCell.textContent = load.totalCurrent.toFixed(2);
+                        }
+                    }
+                }
+            }
+            
+            // Update total current
+            function updateTotal() {
+                const total = loads.reduce((sum, load) => sum + load.totalCurrent, 0);
+                totalCurrentSpan.textContent = `${total.toFixed(2)} A`;
+                const scaled = total * (parseFloat(scaleFactorInput.value) / 100);
+                scaledCurrentSpan.textContent = `${scaled.toFixed(2)} A`;
+                saveState();
+            }
+            
+            // Remove a load
+            function removeLoad(id) {
+                loads = loads.filter(l => l.id !== id);
+                renderLoads();
+                updateTotal();
+                updateStatus('Load removed successfully', 'success');
+            }
+            
+            // Apply scaling factor
+            applyScaleBtn.addEventListener('click', function() {
+                updateTotal();
+            });
+            // Live update on scaling input
+            scaleFactorInput.addEventListener('input', function() {
+                updateTotal();
+            });
+            
+            // Voltage change affects all current calculations
+            voltageInput.addEventListener('input', function() {
+                loads.forEach(load => {
+                    if (load.power && load.power !== '') {
+                        // If power is provided, recalculate current from power and voltage
+                        const voltage = parseFloat(this.value) || 1;
+                        load.current = (parseFloat(load.power) || 0) / voltage;
+                        // Update the current input field directly
+                        const row = document.querySelector(`[data-id="${load.id}"]`);
+                        if (row) {
+                            const currentInput = row.querySelector('.current');
+                            if (currentInput) {
+                                currentInput.value = load.current.toFixed(2);
+                            }
+                        }
+                    }
+                    calculateTotalCurrent(load.id);
+                });
+                updateTotal();
+            });
+
+            // Export Excel
+            exportBtn.addEventListener('click', function() {
+                if (loads.length === 0) {
+                    updateStatus('No loads to export', 'warning');
+                    return;
+                }
+                
+                // Create workbook and worksheet
+                const wb = XLSX.utils.book_new();
+                
+                // Prepare data for the loads sheet
+                const loadsData = [
+                    ['Description', 'Rated Power (W)', 'Current (A)', 'Quantity', 'Total Current (A)']
+                ];
+                
+                loads.forEach(load => {
+                    loadsData.push([
+                        load.description || '',
+                        load.power || 0,
+                        load.current.toFixed(2),
+                        load.quantity || 1,
+                        load.totalCurrent.toFixed(2)
+                    ]);
+                });
+                
+                // Add summary row
+                const totalCurrent = loads.reduce((sum, load) => sum + load.totalCurrent, 0);
+                const scaledCurrent = totalCurrent * (parseFloat(scaleFactorInput.value) / 100);
+                loadsData.push(['', '', '', 'TOTAL:', totalCurrent.toFixed(2)]);
+                loadsData.push(['', '', '', 'SCALED:', scaledCurrent.toFixed(2)]);
+                
+                // Create loads worksheet
+                const ws = XLSX.utils.aoa_to_sheet(loadsData);
+                
+                // Set column widths
+                ws['!cols'] = [
+                    { width: 20 }, // Description
+                    { width: 15 }, // Rated Power
+                    { width: 12 }, // Current
+                    { width: 10 }, // Quantity
+                    { width: 15 }  // Total Current
+                ];
+                
+                // Add the worksheet to workbook
+                XLSX.utils.book_append_sheet(wb, ws, 'Loads');
+                
+                // Create summary sheet
+                const summaryData = [
+                    ['MCB Calculator Summary'],
+                    [''],
+                    ['Voltage (V):', voltageInput.value],
+                    ['Scale Factor (%):', scaleFactorInput.value],
+                    [''],
+                    ['Total Load Current (A):', totalCurrent.toFixed(2)],
+                    ['Scaled Current (A):', scaledCurrent.toFixed(2)],
+                    [''],
+                    ['Generated on:', new Date().toLocaleString()]
+                ];
+                
+                const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+                summaryWs['!cols'] = [
+                    { width: 20 },
+                    { width: 15 }
+                ];
+                
+                XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+                
+                // Generate and download the Excel file
+                const fileName = `mcb_calculation_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                updateStatus('Excel file exported successfully', 'success');
+            });
+
+            // Clear all
+            clearAllBtn.addEventListener('click', function() {
+                if (loads.length > 0) {
+                    if (confirm('Are you sure you want to clear all loads?')) {
+                        loads = [];
+                        voltageInput.value = '220';
+                        scaleFactorInput.value = '100';
+                        renderLoads();
+                        updateTotal();
+                        updateStatus('All loads cleared successfully', 'success');
+                    }
+                } else {
+                    updateStatus('No loads to clear', 'warning');
+                }
+            });
+
+            // Persistence
+            function saveState() {
+                try {
+                    const state = {
+                        voltage: voltageInput.value,
+                        scaleFactor: scaleFactorInput.value,
+                        loads
+                    };
+                    localStorage.setItem(storageKey, JSON.stringify(state));
+                } catch (e) {
+                    // Ignore storage errors
+                }
+            }
+
+            function loadState() {
+                try {
+                    const raw = localStorage.getItem(storageKey);
+                    if (!raw) return false;
+                    const state = JSON.parse(raw);
+                    if (!state) return false;
+                    voltageInput.value = state.voltage || '220';
+                    scaleFactorInput.value = state.scaleFactor || '100';
+                    loads = Array.isArray(state.loads) ? state.loads : [];
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            // Initialize
+            if (loadState()) {
+                renderLoads();
+                updateTotal();
+            }
+        });
+    </script>
+</body>
+</html>
+
